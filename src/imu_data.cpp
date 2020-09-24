@@ -15,6 +15,7 @@ serial::Serial ser; //声明串口对象
 uint8_t imu_dat[100]; //定义串口数据存放数组
 int16_t comb16(uint8_t first ,uint8_t second) ;//声明8位数据合成16位函数
 int32_t comb32(uint8_t first ,uint8_t second ,uint8_t third ,uint8_t fouth);//声明8位数据合成32位函数
+bool initialize;
 
 void write_callback(const std_msgs::String::ConstPtr& msg) 
 { 
@@ -75,6 +76,7 @@ int main(int argc, char** argv)
     roll = 0;
     pitch = 0;
     yaw = 0;
+    initialize = false;
 
     while(ros::ok())
     {
@@ -95,17 +97,32 @@ int main(int argc, char** argv)
                     //四元数位姿,所有数据设为固定值，可以自己写代码获取ＩＭＵ的数据，，然后进行传递
 
                     //角速度
-                    imu_data.angular_velocity.x = -(imu_var.data32[0])/180.0*3.14; 
-                    imu_data.angular_velocity.y = -(imu_var.data32[1])/180.0*3.14;
+                    imu_data.angular_velocity.x = (imu_var.data32[1])/180.0*3.14; 
+                    imu_data.angular_velocity.y = (imu_var.data32[0])/180.0*3.14;
                     imu_data.angular_velocity.z = (imu_var.data32[2])/180.0*3.14;
                     //线加速度
-                    imu_data.linear_acceleration.x = -imu_var.data32[3]*GRAVITY;
-                    imu_data.linear_acceleration.y = 0;
+                    imu_data.linear_acceleration.x = imu_var.data32[4]*GRAVITY;
+                    imu_data.linear_acceleration.y = imu_var.data32[3]*GRAVITY;
                     imu_data.linear_acceleration.z = imu_var.data32[5]*GRAVITY;
 
+                    if( initialize == false ){
+                        double accx,accy,accz;
+                        accx = imu_data.linear_acceleration.x;
+                        accy = imu_data.linear_acceleration.y;
+                        accz = imu_data.linear_acceleration.z;
+                        
+                        pitch = std::atan2(accx,std::sqrt(accy*accy+accz*accz));
+                        roll = std::atan2(accy,std::sqrt(accx*accx+accz*accz));
 
-                    //roll += imu_data.angular_velocity.x * 0.01;
-                    //pitch += imu_data.angular_velocity.y * 0.01;
+                        //debug output
+                        std::cout<<"initialize pitch: "<< 180.0* pitch/3.14<<"roll: "<<180.0 *roll/3.14<<std::endl;
+
+                        initialize = true;
+                    }
+
+
+                    roll += imu_data.angular_velocity.x * 0.01;
+                    pitch += imu_data.angular_velocity.y * 0.01;
                     yaw += imu_data.angular_velocity.z * 0.01;
 
                     //std::cout<<"roll:  "<<roll<<" pitch: "<<pitch<<"yaw: "<<yaw<<std::endl;
